@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThePencilPath – Arc Raiders Alerts</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amber: #e8820a;
+    --amber-dim: #a35805;
+    --amber-glow: #ff9d1a;
+    --rust: #c94f0a;
+    --dark: #080808;
+    --text: #c8c2b4;
+    --text-dim: #5a5a5a;
+
+    /* Per-alert accent colours */
+    --col-follow:   #e8820a;   /* amber */
+    --col-sub:      #4fc3f7;   /* icy blue */
+    --col-donation: #a8e063;   /* scrap-green */
+    --col-raid:     #e03a20;   /* danger red */
+  }
+
+  html, body {
+    width: 900px;
+    /* height is auto — Streamlabs crops to content */
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ═══════════════════════════════════════
+     ALERT WRAPPER
+  ═══════════════════════════════════════ */
+  #alert-wrap {
+    width: 900px;
+    min-height: 180px;
+    position: relative;
+    display: none;          /* hidden until triggered */
+  }
+  #alert-wrap.show { display: block; }
+
+  /* Animate in */
+  #alert-wrap.animate-in  { animation: alert-in  0.45s cubic-bezier(0.2,0,0.2,1) both; }
+  #alert-wrap.animate-out { animation: alert-out 0.4s cubic-bezier(0.8,0,1,1) both; }
+
+  @keyframes alert-in {
+    from { opacity:0; transform:translateY(-24px) scaleY(0.85); filter:blur(6px); }
+    to   { opacity:1; transform:none; filter:none; }
+  }
+  @keyframes alert-out {
+    from { opacity:1; transform:none; filter:none; }
+    to   { opacity:0; transform:translateY(16px) scaleY(0.9); filter:blur(4px); }
+  }
+
+  /* ─── SCANLINES ─── */
+  #alert-wrap::before {
+    content:''; position:absolute; inset:0; z-index:50; pointer-events:none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+    );
+  }
+
+  /* ═══════════════════════════════════════
+     PANEL
+  ═══════════════════════════════════════ */
+  .alert-panel {
+    position: relative;
+    background: linear-gradient(135deg, rgba(10,10,10,0.97) 0%, rgba(16,14,12,0.97) 100%);
+    border: 1px solid var(--accent, var(--amber));
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.8),
+      0 0 30px rgba(0,0,0,0.6),
+      inset 0 0 40px rgba(0,0,0,0.4);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Top accent bar */
+  .alert-panel::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--accent, var(--amber)) 20%,
+      color-mix(in srgb, var(--accent, var(--amber)) 80%, white) 50%,
+      var(--accent, var(--amber)) 80%,
+      transparent 100%
+    );
+    box-shadow: 0 0 14px var(--accent, var(--amber-glow));
+    animation: top-bar-pulse 2s ease-in-out infinite;
+  }
+  @keyframes top-bar-pulse { 0%,100%{opacity:.7} 50%{opacity:1} }
+
+  /* Bottom accent line */
+  .alert-panel::after {
+    content:'';
+    position:absolute; bottom:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent, var(--amber-dim)) 30%, var(--accent, var(--amber-dim)) 70%, transparent);
+    opacity:.4;
+  }
+
+  /* Corner brackets */
+  .corner { position:absolute; width:20px; height:20px; z-index:10; }
+  .corner::before,.corner::after { content:''; position:absolute; background:var(--accent,var(--amber)); opacity:.8; }
+  .corner.tl{top:8px;left:8px}   .corner.tl::before{top:0;left:0;width:2px;height:14px} .corner.tl::after{top:0;left:0;width:14px;height:2px}
+  .corner.tr{top:8px;right:8px}  .corner.tr::before{top:0;right:0;width:2px;height:14px} .corner.tr::after{top:0;right:0;width:14px;height:2px}
+  .corner.bl{bottom:8px;left:8px} .corner.bl::before{bottom:0;left:0;width:2px;height:14px} .corner.bl::after{bottom:0;left:0;width:14px;height:2px}
+  .corner.br{bottom:8px;right:8px} .corner.br::before{bottom:0;right:0;width:2px;height:14px} .corner.br::after{bottom:0;right:0;width:14px;height:2px}
+
+  /* ═══════════════════════════════════════
+     INNER LAYOUT
+  ═══════════════════════════════════════ */
+  .alert-inner {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 22px 30px 22px 0;
+    position: relative; z-index:5;
+  }
+
+  /* Left accent slab */
+  .alert-slab {
+    flex: 0 0 90px;
+    align-self: stretch;
+    background: var(--accent, var(--amber));
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+    margin-right: 28px;
+  }
+  /* diagonal slice on right edge */
+  .alert-slab::after {
+    content:'';
+    position:absolute; top:0; right:-18px; bottom:0; width:36px;
+    background: inherit;
+    transform: skewX(-6deg);
+    transform-origin: top;
+  }
+  .slab-icon {
+    font-size: 26px; line-height:1;
+    color: rgba(0,0,0,0.75);
+    position: relative; z-index:2;
+    filter: drop-shadow(0 1px 0 rgba(255,255,255,0.15));
+  }
+  .slab-type {
+    font-size: 8px; font-weight: 700;
+    letter-spacing: .35em; text-transform: uppercase;
+    color: rgba(0,0,0,0.65);
+    position: relative; z-index:2;
+  }
+
+  /* Slab shimmer */
+  .alert-slab::before {
+    content:'';
+    position:absolute; inset:0; z-index:1;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+    animation: slab-sheen 2.5s ease-in-out infinite;
+  }
+  @keyframes slab-sheen {
+    0%,100%{opacity:.4} 50%{opacity:1}
+  }
+
+  /* Text area */
+  .alert-text { flex:1; display:flex; flex-direction:column; gap:6px; }
+
+  .alert-event-label {
+    font-size: 9px; letter-spacing: .45em; text-transform: uppercase;
+    color: var(--accent, var(--amber));
+    opacity: .8;
+    animation: fade-up .4s .1s both;
+  }
+  @keyframes fade-up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+  .alert-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px; font-weight: 900;
+    letter-spacing: -.01em; line-height:1;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255,255,255,0.15);
+    animation: fade-up .4s .15s both;
+  }
+
+  .alert-message {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px; font-weight: 600;
+    letter-spacing: .06em; line-height: 1.35;
+    color: var(--text);
+    max-width: 640px;
+    animation: fade-up .4s .25s both;
+  }
+  .alert-message .highlight {
+    color: var(--accent, var(--amber));
+  }
+
+  /* ─── HAZARD STRIPE (bottom of slab area) ─── */
+  .hazard-strip {
+    position:absolute; bottom:0; left:0; right:0; height:3px;
+    background: repeating-linear-gradient(90deg,
+      var(--accent,var(--amber)) 0px, var(--accent,var(--amber)) 10px,
+      transparent 10px, transparent 16px
+    );
+    opacity: .35;
+    animation: hz-march .8s linear infinite;
+  }
+  @keyframes hz-march { from{background-position:0 0} to{background-position:26px 0} }
+
+  /* ─── GLITCH FLASH ─── */
+  .glitch-flash {
+    position:absolute; inset:0; z-index:8; pointer-events:none;
+    background: var(--accent,var(--amber));
+    opacity:0;
+    animation: glitch-flash .45s .02s both;
+  }
+  @keyframes glitch-flash {
+    0%  { opacity:.18; }
+    8%  { opacity:0; }
+    12% { opacity:.08; }
+    20% { opacity:0; }
+    100%{ opacity:0; }
+  }
+
+  /* ─── SIDE DATA ─── */
+  .alert-side {
+    flex: 0 0 auto;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    padding-left: 20px;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    animation: fade-up .4s .35s both;
+  }
+  .side-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px; font-weight: 900;
+    color: var(--accent,var(--amber));
+    text-shadow: 0 0 16px var(--accent,var(--amber-glow));
+    line-height:1;
+  }
+  .side-label {
+    font-size: 8px; letter-spacing: .35em; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ═══════════════════════════════════════
+     NOISE overlay
+  ═══════════════════════════════════════ */
+  .noise-layer {
+    position:absolute; inset:0; z-index:6; pointer-events:none; opacity:.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+</style>
+</head>
+<body>
+
+<div id="alert-wrap">
+  <div class="alert-panel" id="alert-panel">
+    <!-- Corners -->
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <!-- Glitch flash -->
+    <div class="glitch-flash" id="glitch-flash"></div>
+    <div class="noise-layer"></div>
+    <div class="hazard-strip"></div>
+
+    <div class="alert-inner">
+      <!-- Coloured slab -->
+      <div class="alert-slab" id="alert-slab">
+        <div class="slab-icon" id="slab-icon">📡</div>
+        <div class="slab-type" id="slab-type">ALERT</div>
+      </div>
+
+      <!-- Main text -->
+      <div class="alert-text">
+        <div class="alert-event-label" id="event-label">// INCOMING SIGNAL</div>
+        <div class="alert-name" id="alert-name">RAIDER</div>
+        <div class="alert-message" id="alert-message"></div>
+      </div>
+
+      <!-- Side value (amount / count) — hidden when empty -->
+      <div class="alert-side" id="alert-side" style="display:none">
+        <div class="side-val" id="side-val"></div>
+        <div class="side-label" id="side-label"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  ALERT DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+const ALERT_CONFIGS = {
+  follow: {
+    accent:    'var(--col-follow)',
+    icon:      '📡',
+    slabType:  'FOLLOW',
+    label:     '// NEW OPERATIVE DETECTED',
+    getMessage: (data) => `<span class="highlight">${data.name}</span> has joined the operation.`,
+    sideVal:   null,
+  },
+  subscription: {
+    accent:    'var(--col-sub)',
+    icon:      '⚙️',
+    slabType:  'SUB',
+    label:     '// SUPPORT UPLINK CONFIRMED',
+    getMessage: (data) => {
+      const base = `<span class="highlight">${data.name}</span> subscribed`;
+      if (data.months && data.months > 1) return `${base} for <span class="highlight">${data.months} months</span>`;
+      if (data.gifted)  return `${base} — gifted by <span class="highlight">${data.gifter}</span>`;
+      return `${base} to the mission.`;
+    },
+    sideVal:   (data) => data.months ? `×${data.months}` : null,
+    sideLabel: 'MONTHS',
+  },
+  donation: {
+    accent:    'var(--col-donation)',
+    icon:      '💰',
+    slabType:  'DONATION',
+    label:     '// SCRAP TRANSFER RECEIVED',
+    getMessage: (data) => {
+      const msg = data.message ? ` — <em style="opacity:.7">${data.message}</em>` : '';
+      return `<span class="highlight">${data.name}</span> dropped scrap${msg}`;
+    },
+    sideVal:   (data) => data.amount ? `$${parseFloat(data.amount).toFixed(2)}` : null,
+    sideLabel: 'SCRAP',
+  },
+  bits: {
+    accent:    'var(--col-donation)',
+    icon:      '💎',
+    slabType:  'BITS',
+    label:     '// ENERGY CORE RECEIVED',
+    getMessage: (data) => {
+      const msg = data.message ? ` — <em style="opacity:.7">${data.message}</em>` : '';
+      return `<span class="highlight">${data.name}</span> sent bits${msg}`;
+    },
+    sideVal:   (data) => data.amount ? `${data.amount}` : null,
+    sideLabel: 'BITS',
+  },
+  raid: {
+    accent:    'var(--col-raid)',
+    icon:      '⚠',
+    slabType:  'RAID',
+    label:     '// HOSTILE INCURSION DETECTED',
+    getMessage: (data) => `<span class="highlight">${data.name}</span> is raiding with <span class="highlight">${data.raiders || '?'} raiders</span>!`,
+    sideVal:   (data) => data.raiders ? `${data.raiders}` : null,
+    sideLabel: 'RAIDERS',
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  ALERT ENGINE
+// ═══════════════════════════════════════════════════════════════
+const DISPLAY_DURATION = 7000; // ms alert stays visible
+let alertQueue = [];
+let isShowing  = false;
+
+function enqueue(type, data) {
+  alertQueue.push({ type, data });
+  if (!isShowing) processQueue();
+}
+
+function processQueue() {
+  if (!alertQueue.length) { isShowing = false; return; }
+  isShowing = true;
+  const { type, data } = alertQueue.shift();
+  showAlert(type, data);
+}
+
+function showAlert(type, data) {
+  const cfg = ALERT_CONFIGS[type];
+  if (!cfg) { processQueue(); return; }
+
+  const wrap  = document.getElementById('alert-wrap');
+  const panel = document.getElementById('alert-panel');
+
+  // Apply accent colour as CSS var on panel
+  panel.style.setProperty('--accent', cfg.accent);
+
+  // Slab
+  document.getElementById('slab-icon').textContent = cfg.icon;
+  document.getElementById('slab-type').textContent = cfg.slabType;
+
+  // Text
+  document.getElementById('event-label').textContent = cfg.label;
+  document.getElementById('alert-name').textContent  = data.name || 'RAIDER';
+  document.getElementById('alert-message').innerHTML = cfg.getMessage(data);
+
+  // Side value
+  const sideEl    = document.getElementById('alert-side');
+  const sideValEl = document.getElementById('side-val');
+  const sideLblEl = document.getElementById('side-label');
+  const sv = typeof cfg.sideVal === 'function' ? cfg.sideVal(data) : cfg.sideVal;
+  if (sv) {
+    sideValEl.textContent = sv;
+    sideLblEl.textContent = cfg.sideLabel || '';
+    sideEl.style.display  = 'flex';
+  } else {
+    sideEl.style.display = 'none';
+  }
+
+  // Reset glitch flash
+  const gf = document.getElementById('glitch-flash');
+  gf.style.animation = 'none';
+  gf.offsetHeight; // reflow
+  gf.style.animation = '';
+
+  // Show
+  wrap.className = 'show animate-in';
+
+  // Schedule hide
+  setTimeout(() => {
+    wrap.classList.remove('animate-in');
+    wrap.classList.add('animate-out');
+    setTimeout(() => {
+      wrap.className = '';
+      processQueue();
+    }, 420);
+  }, DISPLAY_DURATION);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  STREAMLABS SE_API INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('onEventReceived', function(obj) {
+  const listener = obj.detail.listener;
+  const event    = obj.detail.event;
+
+  if (!event || !listener) return;
+
+  // Map Streamlabs event types → our types
+  switch (listener) {
+
+    case 'follower-latest':
+      enqueue('follow', {
+        name: event.name,
+      });
+      break;
+
+    case 'subscriber-latest':
+      enqueue('subscription', {
+        name:    event.name,
+        months:  event.months  || event.streak || null,
+        gifted:  event.gifted  || false,
+        gifter:  event.sender  || null,
+      });
+      break;
+
+    case 'donation-latest':
+      enqueue('donation', {
+        name:    event.name,
+        amount:  event.amount,
+        message: event.message || null,
+      });
+      break;
+
+    case 'bits-latest':
+      enqueue('bits', {
+        name:    event.name,
+        amount:  event.amount,
+        message: event.message || null,
+      });
+      break;
+
+    case 'raid-latest':
+      enqueue('raid', {
+        name:    event.name,
+        raiders: event.raiders || event.viewerCount || null,
+      });
+      break;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  TEST ALERTS — fired on load so you can preview in browser
+//  Streamlabs ignores these; remove if you want a clean widget
+// ═══════════════════════════════════════════════════════════════
+(function runTestSequence() {
+  const tests = [
+    { type:'follow',       data:{ name:'GhostRaider_X' } },
+    { type:'subscription', data:{ name:'VaultRunner',  months: 6 } },
+    { type:'donation',     data:{ name:'SectorDelta',  amount: '5.00', message: 'lets gooo!' } },
+    { type:'raid',         data:{ name:'IronFoxTwitch', raiders: 47 } },
+  ];
+  let delay = 1200;
+  tests.forEach(t => {
+    setTimeout(() => enqueue(t.type, t.data), delay);
+    delay += DISPLAY_DURATION + 900;
+  });
+})();
+</script>
+</body>
+</html>
